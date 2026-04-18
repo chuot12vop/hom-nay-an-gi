@@ -5,7 +5,7 @@ class Meal {
     required this.name,
   });
 
-  final int id;
+  final String id;
   final String code;
   final String name;
 }

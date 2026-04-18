@@ -4,6 +4,6 @@ class Ingredient {
     required this.name,
   });
 
-  final int id;
+  final String id;
   final String name;
 }

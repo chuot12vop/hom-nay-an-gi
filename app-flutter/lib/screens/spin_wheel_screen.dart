@@ -3,14 +3,20 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../models/food.dart';
+import '../theme/app_gradients.dart';
+import '../widgets/gradient_widgets.dart';
+import 'food_detail_screen.dart';
+import 'restaurant_list_screen.dart';
 
 class SpinWheelScreen extends StatefulWidget {
   const SpinWheelScreen({
     required this.foods,
+    required this.onNavigateToChooseFood,
     super.key,
   });
 
   final List<Food> foods;
+  final VoidCallback onNavigateToChooseFood;
 
   @override
   State<SpinWheelScreen> createState() => _SpinWheelScreenState();
@@ -23,7 +29,6 @@ class _SpinWheelScreenState extends State<SpinWheelScreen>
   double _currentRotation = 0;
   Food? _winner;
   bool _isSpinning = false;
-  int? _pendingWinnerIndex;
   double _pendingTargetRotation = 0;
 
   @override
@@ -43,6 +48,28 @@ class _SpinWheelScreenState extends State<SpinWheelScreen>
     super.dispose();
   }
 
+  /// Đưa góc về [0, 2π).
+  static double _normalize2Pi(double radians) {
+    double t = radians % (2 * pi);
+    if (t < 0) {
+      t += 2 * pi;
+    }
+    return t;
+  }
+
+  /// Món nằm dưới mũi tên (12h) khi bánh đã quay [rotationRad] (cùng chiều Transform.rotate).
+  int _indexUnderPointer(double rotationRad) {
+    final int n = widget.foods.length;
+    if (n == 0) {
+      return 0;
+    }
+    final double sweep = (2 * pi) / n;
+    // Offset từ mép ô 0: t = -rotationRad (mod 2π)
+    final double t = _normalize2Pi(-rotationRad);
+    final int i = (t / sweep).floor().clamp(0, n - 1);
+    return i;
+  }
+
   void _spin() {
     final List<Food> foods = widget.foods;
     if (_isSpinning || foods.isEmpty) {
@@ -51,8 +78,12 @@ class _SpinWheelScreenState extends State<SpinWheelScreen>
 
     final int winnerIndex = Random().nextInt(foods.length);
     final double sweep = (2 * pi) / foods.length;
-    final double stopRotation = -(winnerIndex * sweep + (sweep / 2));
-    _pendingTargetRotation = _currentRotation + (2 * pi * 5) + stopRotation;
+    // Cần mid_winner + góc đích ≡ -π/2 (mod 2π) → góc đích ≡ -π/2 - mid_winner (mod 2π)
+    final double midWinner = -pi / 2 + winnerIndex * sweep + sweep / 2;
+    final double targetMod = _normalize2Pi(-pi / 2 - midWinner);
+    final double currentMod = _normalize2Pi(_currentRotation);
+    final double diff = (targetMod - currentMod + 2 * pi) % (2 * pi);
+    _pendingTargetRotation = _currentRotation + (2 * pi * 5) + diff;
 
     _rotationAnimation = Tween<double>(
       begin: _currentRotation,
@@ -62,7 +93,6 @@ class _SpinWheelScreenState extends State<SpinWheelScreen>
     setState(() {
       _isSpinning = true;
       _winner = null;
-      _pendingWinnerIndex = winnerIndex;
     });
 
     _controller
@@ -74,26 +104,52 @@ class _SpinWheelScreenState extends State<SpinWheelScreen>
     if (status != AnimationStatus.completed || !mounted) {
       return;
     }
-    final int? winnerIndex = _pendingWinnerIndex;
-    if (winnerIndex == null || winnerIndex >= widget.foods.length) {
+    if (widget.foods.isEmpty) {
       return;
     }
     setState(() {
       _isSpinning = false;
-      _currentRotation = _pendingTargetRotation % (2 * pi);
-      _winner = widget.foods[winnerIndex];
-      _pendingWinnerIndex = null;
+      _currentRotation = _normalize2Pi(_pendingTargetRotation);
+      final int underPointer = _indexUnderPointer(_currentRotation);
+      _winner = widget.foods[underPointer];
     });
+  }
+
+  Future<void> _showConfirmThen(String message, VoidCallback onConfirmed) async {
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          content: SingleChildScrollView(
+            child: Text(message),
+          ),
+          actions: <Widget>[
+            FilledButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                onConfirmed();
+              },
+              child: const Text('Xác nhận'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final List<Food> foods = widget.foods;
+    final Color labelColor = AppGradients.primaryMid;
     if (foods.isEmpty) {
-      return const Center(
-        child: Text(
-          'Chưa có món để quay.\nHãy vào tab Chọn món và xác nhận bộ lọc trước.',
-          textAlign: TextAlign.center,
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: GradientText(
+            'Chưa có món để quay.\nHãy vào tab Gọi món và xác nhận bộ lọc trước.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
         ),
       );
     }
@@ -102,107 +158,155 @@ class _SpinWheelScreenState extends State<SpinWheelScreen>
       padding: const EdgeInsets.all(16),
       child: Column(
         children: <Widget>[
-          const Text(
-            'Hãy để tôi quyết định số phận của bạn',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          GradientText(
+            _winner != null ? 'Bạn đã tìm được DESTINY rồi đấy =)) \n Bạn sẽ làm gì tiếp theo?' : 'Hãy để tôi định đoạt số phận bạn',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: Center(
-              child: SizedBox(
-                width: 280,
-                height: 280,
-                child: Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: <Widget>[
-                    AnimatedBuilder(
-                      animation: _controller,
-                      builder: (BuildContext context, Widget? child) {
-                        final double angle =
-                            _rotationAnimation?.value ?? _currentRotation;
-                        return Transform.rotate(
-                          angle: angle,
-                          child: CustomPaint(
-                            size: const Size.square(280),
-                            painter: _WheelPainter(foods: foods),
-                          ),
-                        );
-                      },
-                    ),
-                    const Positioned(
-                      top: 0,
-                      child: Icon(
-                        Icons.arrow_drop_down,
-                        size: 44,
-                        color: Colors.redAccent,
-                      ),
-                    ),
-                    Material(
-                      elevation: 6,
-                      shadowColor: Colors.black26,
-                      shape: const CircleBorder(),
-                      clipBehavior: Clip.antiAlias,
-                      color: Theme.of(context).colorScheme.primary,
-                      child: InkWell(
-                        onTap: _isSpinning ? null : _spin,
-                        customBorder: const CircleBorder(),
-                        child: SizedBox(
-                          width: 84,
-                          height: 84,
-                          child: Center(
-                            child: _isSpinning
-                                ? SizedBox(
-                                    width: 32,
-                                    height: 32,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 3,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onPrimary,
+            child: _winner != null
+                ? Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 360),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            GradientButton(
+                              onPressed: () => _showConfirmThen(
+                                'Bạn muốn quay xe và chọn lại từ đầu',
+                                widget.onNavigateToChooseFood,
+                              ),
+                              icon: const Icon(Icons.u_turn_left_rounded),
+                              child: const Text('Quay xe'),
+                            ),
+                            const SizedBox(height: 12),
+                            GradientButton(
+                              onPressed: () => _showConfirmThen(
+                                'Hay đấy! lẹttt gâuuu!',
+                                () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (BuildContext _) =>
+                                          const RestaurantListScreen(),
                                     ),
-                                  )
-                                : Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: <Widget>[
-                                      Icon(
-                                        Icons.casino,
-                                        size: 30,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onPrimary,
+                                  );
+                                },
+                              ),
+                              icon: const Icon(Icons.storefront_outlined),
+                              child: const Text('Đi ăn ngoài'),
+                            ),
+                            const SizedBox(height: 12),
+                            GradientButton(
+                              onPressed: () => _showConfirmThen(
+                                'Có vẻ bạn hơi lười... nhưng tôi thích điều đó',
+                                () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (BuildContext _) =>
+                                          const RestaurantListScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+                              icon: const Icon(Icons.delivery_dining),
+                              child: const Text('Đặt đồ về ăn tại nhà'),
+                            ),
+                            const SizedBox(height: 12),
+                            GradientButton(
+                              onPressed: () {
+                                final Food dish = _winner!;
+                                _showConfirmThen(
+                                  'Khét đấy nhể !!! để tôi giúp bạn một bước tới con đường thành công nhé !!',
+                                  () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (BuildContext _) =>
+                                            FoodDetailScreen(food: dish),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Quay',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelLarge
-                                            ?.copyWith(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onPrimary,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                          ),
+                                    );
+                                  },
+                                );
+                              },
+                              icon: const Icon(Icons.restaurant_rounded),
+                              child: const Text('Tự nấu'),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
+                  )
+                : Center(
+                    child: SizedBox(
+                      width: 280,
+                      height: 280,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _isSpinning ? null : _spin,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          clipBehavior: Clip.none,
+                          children: <Widget>[
+                            AnimatedBuilder(
+                              animation: _controller,
+                              builder: (BuildContext context, Widget? child) {
+                                final double angle =
+                                    _rotationAnimation?.value ?? _currentRotation;
+                                return Transform.rotate(
+                                  angle: angle,
+                                  child: CustomPaint(
+                                    size: const Size.square(280),
+                                    painter: _WheelPainter(
+                                      foods: foods,
+                                      labelColor: labelColor,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            const Positioned(
+                              top: 0,
+                              child: Icon(
+                                Icons.arrow_drop_down,
+                                size: 44,
+                                color: Colors.redAccent,
+                              ),
+                            ),
+                            if (_isSpinning)
+                              Center(
+                                child: SizedBox(
+                                  width: 40,
+                                  height: 40,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 3,
+                                    color: AppGradients.primaryMid,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
           ),
           const SizedBox(height: 8),
-          if (_winner != null)
-            Text(
-              'Nhân phẩm của bạn đã đặt niềm tin ở ${_winner!.name}. \nLet us go!',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
+          // nếu có winner thì hiển thị nhân phẩm, nếu không thì hiển thị đợi quay
+          
+          GradientText(
+            _winner != null
+                ? 'Nhân phẩm của bạn đã đặt niềm tin ở \n${_winner!.name}!'
+                : 'Để xem nhân phẩm đến đâu nào \n ...',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
           const SizedBox(height: 8),
         ],
       ),
@@ -211,9 +315,10 @@ class _SpinWheelScreenState extends State<SpinWheelScreen>
 }
 
 class _WheelPainter extends CustomPainter {
-  _WheelPainter({required this.foods});
+  _WheelPainter({required this.foods, required this.labelColor});
 
   final List<Food> foods;
+  final Color labelColor;
   final List<Color> _palette = <Color>[
     const Color(0xFFFFCC80),
     const Color(0xFF80DEEA),
@@ -251,8 +356,8 @@ class _WheelPainter extends CustomPainter {
       final TextPainter textPainter = TextPainter(
         text: TextSpan(
           text: foods[i].name,
-          style: const TextStyle(
-            color: Colors.black87,
+          style: TextStyle(
+            color: labelColor,
             fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
@@ -279,6 +384,6 @@ class _WheelPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _WheelPainter oldDelegate) {
-    return oldDelegate.foods != foods;
+    return oldDelegate.foods != foods || oldDelegate.labelColor != labelColor;
   }
 }

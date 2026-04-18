@@ -7,9 +7,9 @@ class SavedFilters {
     required this.allergicIngredientIds,
   });
 
-  final int? mealId;
+  final String? mealId;
   final int maxPriceVnd;
-  final List<int> allergicIngredientIds;
+  final List<String> allergicIngredientIds;
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -24,10 +24,10 @@ class SavedFilters {
         (json['allergicIngredientIds'] as List<dynamic>? ?? <dynamic>[]);
 
     return SavedFilters(
-      mealId: json['mealId'] as int?,
+      mealId: json['mealId'] as String?,
       maxPriceVnd: (json['maxPriceVnd'] as num?)?.toInt() ?? 0,
       allergicIngredientIds: rawIngredientIds
-          .map((dynamic value) => (value as num).toInt())
+          .map((dynamic value) => (value as String).toString())
           .toList(),
     );
   }

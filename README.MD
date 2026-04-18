@@ -50,7 +50,11 @@ Dữ liệu món ăn được lấy từ Google Sheet, sau đó áp dụng bộ 
 
 7. **Chuyển sang vòng quay**
    - Nếu có món phù hợp, app gọi `onOpenWheelRequested()` để chuyển tab sang **Vòng quay** (`_selectedIndex = 2`).
-   - `SpinWheelScreen` nhận danh sách món đã lọc và thực hiện chọn món.
+   - `SpinWheelScreen` nhận danh sách món đã lọc và quay ngẫu nhiên trong tập đó.
+
+8. **Vòng quay**
+   - **Chạm vào vòng quay** (bánh) để quay; không còn nút riêng ở giữa.
+   - Mũi tên cố định ở phía trên (12h); sau khi dừng, **ô nằm dưới mũi tên** trùng với **món hiển thị** ở dưới (góc dừng được tính bù theo góc hiện tại sau mỗi lượt quay).
 
 ## 3) Thành phần chính
 
@@ -58,6 +62,8 @@ Dữ liệu món ăn được lấy từ Google Sheet, sau đó áp dụng bộ 
   - Điều hướng tab chính, truyền dữ liệu món đã lọc từ tab Chọn món sang tab Vòng quay.
 - `lib/screens/choose_food_screen.dart`
   - UI chọn bộ lọc + tải dữ liệu + lọc món + điều hướng sang vòng quay.
+- `lib/screens/spin_wheel_screen.dart`
+  - Vòng quay: animation quay, chọn món theo ô dưới mũi tên sau khi dừng.
 - `lib/services/google_sheet_service.dart`
   - Đọc CSV từ Google Sheet, map về model (`Food`, `Meal`, `Ingredient`, `FoodCategory`).
 - `lib/services/filter_storage_service.dart`

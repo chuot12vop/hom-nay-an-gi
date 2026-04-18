@@ -126,22 +126,25 @@ class GoogleSheetService {
   }
 
   Food _foodFromRow(Map<String, String> row) {
-    final int id = _toInt(row['food_id']) ?? 0;
-    final int categoryId = _toInt(row['category_ids']) ?? 0;
-    final int mealId = _toInt(row['meal_ids']) ?? 0;
+    final String id = row['food_id'] ?? '';
+    final String categoryId = row['category_ids'] ?? '';
+    final String mealId = row['meal_ids'] ?? '';
     final int priceVnd = _toInt(row['price_vnd']) ?? 0;
 
     final String ingredientIdsText = row['ingredient_ids'] ?? '';
-    final List<int> ingredientIds = ingredientIdsText
+    final List<String> ingredientIds = ingredientIdsText
         .split(',')
-        .map((String value) => _toInt(value.trim()))
-        .whereType<int>()
+        .map((String value) =>value.trim())
         .toList();
 
-    final int? mainIngredientId = _toInt(row['main_ingredient_id']);
+    final String? mainIngredientId = row['main_ingredient_id'];
     if (ingredientIds.isEmpty && mainIngredientId != null) {
       ingredientIds.add(mainIngredientId);
     }
+
+    final String imageUrl = (row['image'] ?? row['food_image_url'] ?? '').trim();
+    final String recipeUrl = (row['recipe'] ?? '').trim();
+    final String youtubeUrl = (row['youtube'] ?? row['video_url'] ?? '').trim();
 
     return Food(
       id: id,
@@ -150,19 +153,22 @@ class GoogleSheetService {
       mealId: mealId,
       priceVnd: priceVnd,
       ingredientIds: ingredientIds,
+      imageUrl: imageUrl.isEmpty ? null : imageUrl,
+      recipeUrl: recipeUrl.isEmpty ? null : recipeUrl,
+      youtubeUrl: youtubeUrl.isEmpty ? null : youtubeUrl,
     );
   }
 
   Ingredient _ingredientFromRow(Map<String, String> row) {
     return Ingredient(
-      id: _toInt(row['ingredient_id']) ?? 0,
+      id: row['ingredient_id'] ?? '0',
       name: (row['ingredient_name_vi'] ?? row['name'] ?? '').trim(),
     );
   }
 
   Meal _mealFromRow(Map<String, String> row) {
     return Meal(
-      id: _toInt(row['meal_id']) ?? 0,
+      id: row['meal_id'] ?? '',
       code: (row['meal_code'] ?? '').trim(),
       name: (row['meal_name_vi'] ?? row['name'] ?? '').trim(),
     );
@@ -179,42 +185,42 @@ class GoogleSheetService {
     return const SheetData(
       foods: <Food>[
         Food(
-          id: 1,
+          id: '1',
           name: 'Phở bò',
-          categoryId: 1,
-          mealId: 2,
+          categoryId: '1',
+          mealId: '2',
           priceVnd: 50000,
-          ingredientIds: <int>[3, 7],
+          ingredientIds: <String>['3', '7'],
         ),
         Food(
-          id: 2,
+          id: '2',
           name: 'Cơm gà',
-          categoryId: 2,
-          mealId: 3,
+          categoryId: '2',
+          mealId: '3',
           priceVnd: 55000,
-          ingredientIds: <int>[2, 1],
+          ingredientIds: <String>['2', '1'],
         ),
         Food(
-          id: 3,
+          id: '3',
           name: 'Đậu hũ sốt cà',
-          categoryId: 4,
-          mealId: 3,
+          categoryId: '4',
+          mealId: '3',
           priceVnd: 40000,
-          ingredientIds: <int>[5, 6],
+          ingredientIds: <String>['5', '6'],
         ),
       ],
       ingredients: <Ingredient>[
-        Ingredient(id: 1, name: 'Gạo'),
-        Ingredient(id: 2, name: 'Thịt gà'),
-        Ingredient(id: 3, name: 'Thịt bò'),
-        Ingredient(id: 5, name: 'Đậu hũ'),
-        Ingredient(id: 6, name: 'Rau cải'),
-        Ingredient(id: 7, name: 'Mì'),
+        Ingredient(id: '1', name: 'Gạo'),
+        Ingredient(id: '2', name: 'Thịt gà'),
+        Ingredient(id: '3', name: 'Thịt bò'),
+        Ingredient(id: '5', name: 'Đậu hũ'),
+        Ingredient(id: '6', name: 'Rau cải'),
+        Ingredient(id: '7', name: 'Mì'),
       ],
       meals: <Meal>[
-        Meal(id: 1, code: 'BREAKFAST', name: 'Bữa sáng'),
-        Meal(id: 2, code: 'LUNCH', name: 'Bữa trưa'),
-        Meal(id: 3, code: 'DINNER', name: 'Bữa tối'),
+        Meal(id: '1', code: 'BREAKFAST', name: 'Bữa sáng'),
+        Meal(id: '2', code: 'LUNCH', name: 'Bữa trưa'),
+        Meal(id: '3', code: 'DINNER', name: 'Bữa tối'),
       ],
     );
   }

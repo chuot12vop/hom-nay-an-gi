@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:multi_dropdown/multi_dropdown.dart';
 
 import '../models/food.dart';
 import '../models/ingredient.dart';
@@ -9,6 +10,9 @@ import '../models/saved_filters.dart';
 import '../models/sheet_data.dart';
 import '../services/filter_storage_service.dart';
 import '../services/google_sheet_service.dart';
+import '../services/common_service.dart';
+import '../widgets/gradient_widgets.dart';
+
 
 class ChooseFoodScreen extends StatefulWidget {
   const ChooseFoodScreen({
@@ -29,11 +33,11 @@ class _ChooseFoodScreenState extends State<ChooseFoodScreen> {
   final FilterStorageService _storageService = FilterStorageService();
 
   SheetData? _sheetData;
-  int? _selectedMealId;
+  String? _selectedMealId;
   double _maxPrice = 70000;
   double _sliderMinPrice = 10000;
   double _sliderMaxPrice = 300000;
-  final Set<int> _allergicIngredientIds = <int>{};
+  final Set<String> _selectedAllergicIngredientIds = <String>{};
 
   bool _isLoading = false;
   String? _feedback;
@@ -59,14 +63,10 @@ class _ChooseFoodScreenState extends State<ChooseFoodScreen> {
   }
 
   Future<void> _loadData() async {
-    if (!GoogleSheetService.hasSessionCache) {
-      setState(() {
-        _isLoading = true;
-        _feedback = null;
-      });
-    } else {
-      setState(() => _feedback = null);
-    }
+    setState(() {
+      _isLoading = true;
+      _feedback = null;
+    });
 
     final SheetData data = await _sheetService.fetchAllTables();
     final SavedFilters? savedFilters = await _storageService.read();
@@ -84,11 +84,17 @@ class _ChooseFoodScreenState extends State<ChooseFoodScreen> {
         final bool hasMeal = data.meals.any((Meal meal) => meal.id == savedFilters.mealId);
         _selectedMealId = hasMeal ? savedFilters.mealId : null;
         _maxPrice = savedFilters.maxPriceVnd.toDouble().clamp(_sliderMinPrice, _sliderMaxPrice);
-        _allergicIngredientIds
+
+        final Set<String> validIngredientIds =
+            data.ingredients.map((Ingredient i) => i.id).toSet();
+        _selectedAllergicIngredientIds
           ..clear()
-          ..addAll(savedFilters.allergicIngredientIds);
+          ..addAll(
+            savedFilters.allergicIngredientIds.where(validIngredientIds.contains),
+          );
       } else {
         _maxPrice = _sliderMaxPrice;
+        _selectedAllergicIngredientIds.clear();
       }
     });
   }
@@ -103,7 +109,7 @@ class _ChooseFoodScreenState extends State<ChooseFoodScreen> {
     final SavedFilters filters = SavedFilters(
       mealId: _selectedMealId,
       maxPriceVnd: _maxPrice.round(),
-      allergicIngredientIds: _allergicIngredientIds.toList()..sort(),
+      allergicIngredientIds: _selectedAllergicIngredientIds.toList()..sort(),
     );
 
     await _storageService.save(filters);
@@ -145,7 +151,7 @@ class _ChooseFoodScreenState extends State<ChooseFoodScreen> {
 
       if (filters.allergicIngredientIds.isNotEmpty) {
         final bool hasAllergyIngredient = food.ingredientIds.any(
-          (int ingredientId) => filters.allergicIngredientIds.contains(ingredientId),
+          (String ingredientId) => filters.allergicIngredientIds.contains(ingredientId),
         );
         return !hasAllergyIngredient;
       }
@@ -155,13 +161,13 @@ class _ChooseFoodScreenState extends State<ChooseFoodScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    final SheetData? data = _sheetData;
+    if (_isLoading || data == null) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final SheetData? data = _sheetData;
-    final List<Meal> meals = data?.meals ?? <Meal>[];
-    final List<Ingredient> ingredients = data?.ingredients ?? <Ingredient>[];
+    final List<Meal> meals = data.meals;
+    final List<Ingredient> ingredients = data.ingredients;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -172,60 +178,75 @@ class _ChooseFoodScreenState extends State<ChooseFoodScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                DropdownButtonFormField<int?>(
+                const SizedBox(height: 16),
+                GradientText('Chọn bữa ăn',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),),
+                DropdownButtonFormField<String?>(
                   initialValue: _selectedMealId,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
-                    labelText: 'Chọn bữa ăn',
                   ),
-                  items: <DropdownMenuItem<int?>>[
-                    const DropdownMenuItem<int?>(
+                  items: <DropdownMenuItem<String?>>[
+                    const DropdownMenuItem<String?>(
                       value: null,
                       child: Text('Tất cả bữa ăn'),
                     ),
                     ...meals.map(
-                      (Meal meal) => DropdownMenuItem<int?>(
+                      (Meal meal) => DropdownMenuItem<String?>(
                         value: meal.id,
                         child: Text(meal.name),
                       ),
                     ),
                   ],
-                  onChanged: (int? value) => setState(() => _selectedMealId = value),
+                  onChanged: (String? value) => setState(() => _selectedMealId = value),
                 ),
                 const SizedBox(height: 16),
-                Text('Giá tối đa: ${_maxPrice.round()} VND'),
+                GradientText(
+                  'Giới hạn thiệt hại mỗi người: ${CommonService.toLocalString(_maxPrice.round())} VND',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
                 Slider(
                   value: _maxPrice.clamp(_sliderMinPrice, _sliderMaxPrice),
                   min: _sliderMinPrice,
                   max: _sliderMaxPrice,
-                  label: _maxPrice.round().toString(),
+                  label: CommonService.toLocalString(_maxPrice.round()),
                   onChanged: (double value) => setState(() => _maxPrice = value),
                 ),
                 const SizedBox(height: 8),
-                Text(
+                GradientText(
                   'Thành phần dị ứng',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                 ),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: ingredients.map((Ingredient ingredient) {
-                    final bool selected = _allergicIngredientIds.contains(ingredient.id);
-                    return FilterChip(
-                      label: Text(ingredient.name),
-                      selected: selected,
-                      onSelected: (bool value) {
-                        setState(() {
-                          if (value) {
-                            _allergicIngredientIds.add(ingredient.id);
-                          } else {
-                            _allergicIngredientIds.remove(ingredient.id);
-                          }
-                        });
-                      },
-                    );
-                  }).toList(),
+                MultiDropdown<String>(
+                  items: ingredients
+                      .map(
+                        (Ingredient ingredient) => DropdownItem<String>(
+                          value: ingredient.id,
+                          label: ingredient.name,
+                          selected: _selectedAllergicIngredientIds.contains(ingredient.id),
+                        ),
+                      )
+                      .toList(),
+                  fieldDecoration: const FieldDecoration(
+                    hintText: 'Chọn thành phần dị ứng',
+                    suffixIcon: Icon(Icons.keyboard_arrow_down_rounded),
+                  ),
+                  searchEnabled: true,
+                  searchDecoration: const SearchFieldDecoration(
+                    hintText: 'Tìm thành phần dị ứng',
+                  ),
+                  onSelectionChange: (List<String> values) {
+                    _selectedAllergicIngredientIds
+                      ..clear()
+                      ..addAll(values);
+                  },
                 ),
               ],
             ),
@@ -245,9 +266,10 @@ class _ChooseFoodScreenState extends State<ChooseFoodScreen> {
           minimum: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           child: SizedBox(
             width: double.infinity,
-            child: FilledButton(
+            child: GradientButton(
               onPressed: _confirmAndRecommend,
-              child: const Text('Xác nhận bộ lọc và chuyển sang vòng quay'),
+              icon: const Icon(Icons.auto_awesome_rounded),
+              child: const Text('Giờ đến phần GAY cấn nhất nào'),
             ),
           ),
         ),

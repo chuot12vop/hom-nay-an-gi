@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hôm Nay Ăn Gì — Sơ đồ app (Flutter)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #faf7f2;
+      --paper: #ffffff;
+      --ink: #1a1208;
+      --accent: #e07800;
+      --accent-soft: #fff4e6;
+      --border: #e8dfd4;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Source Sans 3", system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+      color: var(--ink);
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 120% 80% at 100% 0%, rgba(224, 120, 0, 0.08), transparent 50%),
+        radial-gradient(ellipse 80% 60% at 0% 100%, rgba(92, 74, 58, 0.06), transparent 45%);
+    }
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+    header {
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: Fraunces, Georgia, serif;
+      font-weight: 700;
+      font-size: clamp(1.75rem, 4vw, 2.25rem);
+      margin: 0 0 0.5rem;
+      letter-spacing: -0.02em;
+    }
+    .lede {
+      margin: 0;
+      color: #5c4a3a;
+      max-width: 52ch;
+    }
+    section {
+      background: var(--paper);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.25rem 0.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 0 rgba(26, 18, 8, 0.04);
+    }
+    section h2 {
+      font-family: Fraunces, Georgia, serif;
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin: 0 0 0.35rem;
+    }
+    section p.caption {
+      margin: 0 0 1rem;
+      font-size: 0.9rem;
+      color: #5c4a3a;
+    }
+    .mermaid {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+    footer {
+      font-size: 0.85rem;
+      color: #7a6b5c;
+      margin-top: 2rem;
+    }
+    footer code {
+      font-size: 0.8em;
+      background: var(--accent-soft);
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <span class="badge">Phần app · Flutter</span>
+      <h1>Sơ đồ ứng dụng Hôm Nay Ăn Gì</h1>
+      <p class="lede">
+        Mở file này trong trình duyệt để xem sơ đồ. Backend sẽ có <code>graph</code> riêng sau.
+      </p>
+    </header>
+
+    <section>
+      <h2>Điều hướng (Bottom bar)</h2>
+      <p class="caption">Năm tab; mặc định mở tab <strong>Chọn món</strong> (index 1).</p>
+      <pre class="mermaid">
+flowchart LR
+  subgraph tabs["BaseHomePage — BottomNavigationBar"]
+    T0["Lịch sử"]
+    T1["Chọn món · mặc định"]
+    T2["Vòng quay"]
+    T3["Short video"]
+    T4["Tài khoản"]
+  end
+  T0 --- T1 --- T2 --- T3 --- T4
+      </pre>
+    </section>
+
+    <section>
+      <h2>Luồng dữ liệu &amp; màn hình</h2>
+      <p class="caption">Từ Google Sheet → lọc → danh sách món sang vòng quay.</p>
+      <pre class="mermaid">
+flowchart TB
+  subgraph boot["Khởi động"]
+    M["main · HomNayAnGiApp"] --> BH["BaseHomePage"]
+    BH --> CF["ChooseFoodScreen"]
+  end
+  subgraph data["Dữ liệu"]
+    CF --> LD["_loadData"]
+    LD --> GSS["GoogleSheetService"]
+    GSS -->|"lỗi"| FB["Fallback"]
+    GSS --> OK["SheetData / models"]
+    FB --> OK
+    OK --> FS["FilterStorageService · food_filters.json"]
+  end
+  subgraph user["Lọc"]
+    FS --> UI["meal · giá · dị ứng"]
+    UI --> BTN["Xác nhận · SavedFilters"]
+    BTN --> FF["_filterFoods"]
+  end
+  subgraph out["Kết quả"]
+    FF --> CB["onFoodsFiltered"]
+    CB --> WH["onOpenWheelRequested → tab Vòng quay"]
+    WH --> SW["SpinWheelScreen"]
+  end
+      </pre>
+    </section>
+
+    <section>
+      <h2>Lớp mã nguồn (lib)</h2>
+      <p class="caption">Phụ thuộc chính giữa màn hình, service và model.</p>
+      <pre class="mermaid">
+flowchart TB
+  subgraph entry["entry"]
+    MA["main.dart · HomNayAnGiApp · BaseHomePage"]
+  end
+  subgraph screens["screens"]
+    CH["choose_food_screen.dart"]
+    SP["spin_wheel_screen.dart"]
+  end
+  subgraph services["services"]
+    GS["google_sheet_service.dart"]
+    ST["filter_storage_service.dart"]
+  end
+  subgraph models["models"]
+    SD["sheet_data · food · meal · ingredient · food_category · saved_filters"]
+  end
+  MA --> CH
+  MA --> SP
+  CH --> GS
+  CH --> ST
+  CH --> SD
+  GS --> SD
+  ST --> SD
+  SP --> SD
+      </pre>
+    </section>
+
+    <footer>
+      Nguồn tham chiếu: <code>README.md</code> gốc repo, <code>app-flutter/lib/</code>.
+      Cập nhật sơ đồ khi thêm tab hoặc service mới.
+    </footer>
+  </div>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: "base",
+      themeVariables: {
+        primaryColor: "#fff4e6",
+        primaryTextColor: "#1a1208",
+        primaryBorderColor: "#e07800",
+        lineColor: "#5c4a3a",
+        secondaryColor: "#ffe8cc",
+        tertiaryColor: "#faf7f2",
+        fontFamily: '"Source Sans 3", system-ui, sans-serif',
+      },
+      flowchart: { curve: "basis", padding: 12 },
+    });
+    await mermaid.run();
+  </script>
+</body>
+</html>

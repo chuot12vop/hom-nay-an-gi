@@ -1,0 +1,23 @@
+---
+description: Đọc README và graphify-out trước khi thực hiện thay đổi
+alwaysApply: true
+---
+
+# Ngữ cảnh dự án trước khi làm việc
+
+Trước khi triển khai tính năng, sửa lỗi, hoặc refactor, agent **phải** nắm luồng và cấu trúc hệ thống theo thứ tự sau.
+
+## 1. README gốc của repo
+
+- Đọc **`README.md`** ở thư mục gốc workspace (luồng hệ thống, màn hình, service, dữ liệu).
+- Chỉ sau khi đã hiểu luồng mô tả trong README mới bắt đầu chỉnh sửa hoặc thêm code liên quan.
+
+## 2. Thư mục graphify (nếu có)
+
+- Nếu tồn tại **`graphify-out/`**, đọc nội dung trong đó (sơ đồ / mô tả cấu trúc) để bổ sung hiểu biết về kiến trúc so với README.
+- Nếu thư mục không tồn tại hoặc rỗng, bỏ qua bước này và dựa vào README + mã nguồn.
+
+## Ghi chú
+
+- Không thay thế việc đọc mã cụ thể khi cần; README và graphify là bản đồ, code là chi tiết.
+- Khi README hoặc graphify-out thay đổi lớn, ưu tiên đọc lại trước khi làm việc liên quan.

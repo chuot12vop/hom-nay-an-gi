@@ -141,7 +141,7 @@ class _ChooseFoodScreenState extends State<ChooseFoodScreen> {
 
   List<Food> _filterFoods(List<Food> foods, SavedFilters filters) {
     return foods.where((Food food) {
-      if (filters.mealId != null && food.mealId != filters.mealId) {
+      if (filters.mealId != null && !food.mealId.contains(filters.mealId!)) {
         return false;
       }
 
@@ -252,14 +252,6 @@ class _ChooseFoodScreenState extends State<ChooseFoodScreen> {
             ),
           ),
         ),
-        if (_feedback != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text(
-              _feedback!,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
         const Divider(height: 1),
         SafeArea(
           top: false,

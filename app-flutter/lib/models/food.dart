@@ -32,13 +32,19 @@ class Food {
     if (urlOrId == null) {
       return null;
     }
-    final String s = urlOrId.trim();
+    String s = urlOrId.trim();
     if (s.isEmpty) {
       return null;
     }
     final RegExp idOnly = RegExp(r'^[a-zA-Z0-9_-]{11}$');
     if (idOnly.hasMatch(s)) {
       return s;
+    }
+    if (s.startsWith('http://')) {
+      s = 'https://${s.substring(7)}';
+    } else if (!s.contains('://') &&
+        (s.contains('youtube.com') || s.contains('youtu.be'))) {
+      s = 'https://$s';
     }
     final Uri? uri = Uri.tryParse(s);
     if (uri == null) {
@@ -66,6 +72,11 @@ class Food {
       final int shorts = segs.indexOf('shorts');
       if (shorts >= 0 && shorts + 1 < segs.length) {
         final String id = segs[shorts + 1];
+        return idOnly.hasMatch(id) ? id : null;
+      }
+      final int live = segs.indexOf('live');
+      if (live >= 0 && live + 1 < segs.length) {
+        final String id = segs[live + 1];
         return idOnly.hasMatch(id) ? id : null;
       }
     }

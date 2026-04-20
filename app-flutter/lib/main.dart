@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 
 import 'models/food.dart';
+import 'models/sheet_data.dart';
 import 'screens/choose_food_screen.dart';
+import 'screens/history_screen.dart';
+import 'screens/short_videos_screen.dart';
 import 'screens/spin_wheel_screen.dart';
+import 'services/google_sheet_service.dart';
+import 'services/spin_history_service.dart';
 import 'theme/app_gradients.dart';
 import 'widgets/app_gradient_bottom_nav.dart';
 import 'widgets/gradient_widgets.dart';
@@ -125,6 +130,74 @@ class _BaseHomePageState extends State<BaseHomePage> {
   List<Food> _filteredFoods = <Food>[];
   int _wheelSession = 0;
 
+  /// Khi chưa lọc từ Gọi món: tối đa 10 món khác nhau từ lịch sử quay gần nhất.
+  List<Food> _defaultWheelFoods = <Food>[];
+  bool _defaultWheelLoading = true;
+  int _historyVersion = 0;
+
+  final SpinHistoryService _spinHistoryService = SpinHistoryService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDefaultWheelFoods();
+  }
+
+  /// [silent]: sau khi quay — chỉ cập nhật danh sách, không bật loading che vòng quay.
+  Future<void> _loadDefaultWheelFoods({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _defaultWheelLoading = true;
+      });
+    }
+    try {
+      final GoogleSheetService sheet = GoogleSheetService();
+      final SheetData data = await sheet.fetchAllTables();
+      final List<String> ids = await _spinHistoryService.recentUniqueFoodIds(10);
+      final List<Food> foods = _foodsFromIds(ids, data.foods);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _defaultWheelFoods = foods;
+        _defaultWheelLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _defaultWheelFoods = <Food>[];
+        _defaultWheelLoading = false;
+      });
+    }
+  }
+
+  List<Food> _foodsFromIds(List<String> ids, List<Food> allFoods) {
+    final Map<String, Food> map = <String, Food>{
+      for (final Food f in allFoods) f.id: f,
+    };
+    final List<Food> out = <Food>[];
+    for (final String id in ids) {
+      final Food? f = map[id];
+      if (f != null) {
+        out.add(f);
+      }
+    }
+    return out;
+  }
+
+  Future<void> _handleSpinCompleted(Food food) async {
+    await _spinHistoryService.appendSpin(food);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _historyVersion++;
+    });
+    await _loadDefaultWheelFoods(silent: true);
+  }
+
   /// Rời tab Vòng quay: xóa món đã lọc + tạo lại state vòng quay (winner, góc quay…).
   void _clearWheelAndFoods() {
     _filteredFoods = <Food>[];
@@ -141,17 +214,20 @@ class _BaseHomePageState extends State<BaseHomePage> {
   }
 
   Widget _buildBody() {
-    final Widget placeholder = Center(
+    final Widget accountPlaceholder = Center(
       child: Text(
         'Nội dung tạm thời để trống',
         style: Theme.of(context).textTheme.titleMedium,
       ),
     );
 
+    final List<Food> wheelFoods =
+        _filteredFoods.isNotEmpty ? _filteredFoods : _defaultWheelFoods;
+
     return IndexedStack(
       index: _selectedIndex,
       children: <Widget>[
-        placeholder,
+        HistoryScreen(key: ValueKey<int>(_historyVersion)),
         ChooseFoodScreen(
           onFoodsFiltered: (List<Food> foods) {
             setState(() => _filteredFoods = foods);
@@ -162,14 +238,17 @@ class _BaseHomePageState extends State<BaseHomePage> {
         ),
         SpinWheelScreen(
           key: ValueKey<int>(_wheelSession),
-          foods: _filteredFoods,
+          foods: wheelFoods,
+          isLoadingDefaultFoods:
+              _filteredFoods.isEmpty && _defaultWheelLoading,
+          onSpinCompleted: _handleSpinCompleted,
           onNavigateToChooseFood: () => setState(() {
             _selectedIndex = 1;
             _clearWheelAndFoods();
           }),
         ),
-        placeholder,
-        placeholder,
+        ShortVideosScreen(isActiveTab: _selectedIndex == 3),
+        accountPlaceholder,
       ],
     );
   }

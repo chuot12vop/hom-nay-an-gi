@@ -5,7 +5,10 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../models/food.dart';
 import '../services/common_service.dart';
 import '../theme/app_gradients.dart';
+import '../services/youtube_oembed_service.dart';
+import '../utils/youtube_video_id.dart';
 import '../widgets/gradient_widgets.dart';
+import '../widgets/youtube_cover_player.dart';
 
 class FoodDetailScreen extends StatefulWidget {
   const FoodDetailScreen({required this.food, super.key});
@@ -29,9 +32,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
   }
 
   void _onTabChanged() {
-    if (_tabController.indexIsChanging) {
-      return;
-    }
     if (_tabController.index == 0) {
       _youtubeController?.dispose();
       _youtubeController = null;
@@ -45,7 +45,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
     if (_youtubeController != null) {
       return;
     }
-    final String? videoId = Food.parseYoutubeVideoId(widget.food.youtubeUrl);
+    final String? videoId = resolveYoutubeVideoId(widget.food.youtubeUrl);
     if (videoId == null) {
       return;
     }
@@ -90,7 +90,12 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
       ),
       body: _tabController.index == 0
           ? _RecipeTab(food: food)
-          : _VideoTab(controller: _youtubeController),
+          : SizedBox.expand(
+              child: _VideoTab(
+                controller: _youtubeController,
+                youtubeUrl: food.youtubeUrl,
+              ),
+            ),
     );
   }
 }
@@ -132,59 +137,69 @@ class _RecipeTabState extends State<_RecipeTab> {
   Widget build(BuildContext context) {
     final Food food = widget.food;
     final bool hasWebRecipe = _webController != null;
+    final double screenH = MediaQuery.sizeOf(context).height;
+    // WebView cần chiều cao hữu hạn; toàn bộ Column cuộn trong SingleChildScrollView.
+    final double webHeight = (screenH * 0.58).clamp(380.0, 820.0);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: GradientText(
-            food.name,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
-            'Thiệt hại trên đầu người: ${CommonService.toLocalString(food.priceVnd)} VND',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: _FoodImage(url: food.imageUrl),
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: GradientText(
+              food.name,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: hasWebRecipe
-              ? ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                  child: WebViewWidget(controller: _webController!),
-                )
-              : Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      'Công thức chưa được cập nhật',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: const Color(0xFF8A8A8E),
-                          ),
-                    ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              'Thiệt hại trên đầu người: ${CommonService.toLocalString(food.priceVnd)} VND',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: _FoodImage(url: food.imageUrl),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (hasWebRecipe)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                child: SizedBox(
+                  height: webHeight,
+                  child: WebViewWidget(controller: _webController!),
                 ),
-        ),
-      ],
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+              child: Text(
+                'Công thức chưa được cập nhật',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: const Color(0xFF8A8A8E),
+                    ),
+              ),
+            ),
+          if (hasWebRecipe) const SizedBox(height: 24),
+        ],
+      ),
     );
   }
 }
@@ -248,14 +263,69 @@ class _FoodImage extends StatelessWidget {
   }
 }
 
-class _VideoTab extends StatelessWidget {
-  const _VideoTab({required this.controller});
+class _VideoTab extends StatefulWidget {
+  const _VideoTab({
+    required this.controller,
+    required this.youtubeUrl,
+  });
 
   final YoutubePlayerController? controller;
+  final String? youtubeUrl;
+
+  @override
+  State<_VideoTab> createState() => _VideoTabState();
+}
+
+class _VideoTabState extends State<_VideoTab> {
+  int _oembedGen = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleOembedAspect();
+  }
+
+  @override
+  void didUpdateWidget(covariant _VideoTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.youtubeUrl != widget.youtubeUrl ||
+        oldWidget.controller != widget.controller) {
+      _scheduleOembedAspect();
+    }
+  }
+
+  void _scheduleOembedAspect() {
+    final String? videoId = resolveYoutubeVideoId(widget.youtubeUrl);
+    if (videoId == null) {
+      return;
+    }
+    _oembedGen++;
+    final int gen = _oembedGen;
+    YoutubeOembedService.instance
+        .fetchAspectRatio(videoId: videoId, pageUrl: widget.youtubeUrl)
+        .then((double? _) {
+      if (!mounted || gen != _oembedGen) {
+        return;
+      }
+      setState(() {});
+    });
+  }
+
+  double get _aspectRatio {
+    final String? videoId = resolveYoutubeVideoId(widget.youtubeUrl);
+    if (videoId != null) {
+      final double? c =
+          YoutubeOembedService.instance.cachedAspectForVideoId(videoId);
+      if (c != null) {
+        return c;
+      }
+    }
+    return youtubeDisplayAspectRatio(widget.youtubeUrl);
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (controller == null) {
+    if (widget.controller == null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -270,19 +340,16 @@ class _VideoTab extends StatelessWidget {
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: YoutubePlayer(
-        controller: controller!,
-        aspectRatio: 16 / 9,
-        showVideoProgressIndicator: true,
-        progressIndicatorColor: AppGradients.primaryMid,
-        progressColors: ProgressBarColors(
-          playedColor: AppGradients.primaryEnd,
-          handleColor: AppGradients.primaryMid,
-          bufferedColor: AppGradients.primaryStart.withValues(alpha: 0.35),
-          backgroundColor: Colors.black26,
-        ),
+    return YoutubeCoverPlayer(
+      controller: widget.controller!,
+      videoAspectRatio: _aspectRatio,
+      showVideoProgressIndicator: true,
+      progressIndicatorColor: AppGradients.primaryMid,
+      progressColors: ProgressBarColors(
+        playedColor: AppGradients.primaryEnd,
+        handleColor: AppGradients.primaryMid,
+        bufferedColor: AppGradients.primaryStart.withValues(alpha: 0.35),
+        backgroundColor: Colors.black26,
       ),
     );
   }

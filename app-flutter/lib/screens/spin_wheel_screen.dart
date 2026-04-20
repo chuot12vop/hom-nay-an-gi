@@ -8,15 +8,35 @@ import '../widgets/gradient_widgets.dart';
 import 'food_detail_screen.dart';
 import 'restaurant_list_screen.dart';
 
+/// Trùng logic WebView công thức trong [FoodDetailScreen]: chỉ coi là có công thức khi URL http(s) hợp lệ.
+bool _foodHasRecipeUrl(Food food) {
+  final String? raw = food.recipeUrl;
+  if (raw == null || raw.trim().isEmpty) {
+    return false;
+  }
+  final Uri? uri = Uri.tryParse(raw.trim());
+  return uri != null &&
+      (uri.scheme == 'http' || uri.scheme == 'https') &&
+      uri.host.isNotEmpty;
+}
+
 class SpinWheelScreen extends StatefulWidget {
   const SpinWheelScreen({
     required this.foods,
     required this.onNavigateToChooseFood,
+    this.onSpinCompleted,
+    this.isLoadingDefaultFoods = false,
     super.key,
   });
 
   final List<Food> foods;
   final VoidCallback onNavigateToChooseFood;
+
+  /// Gọi khi vòng quay dừng và đã xác định món trúng (để lưu lịch sử).
+  final ValueChanged<Food>? onSpinCompleted;
+
+  /// Đang tải 10 món mặc định từ lịch sử (khi chưa lọc từ Gọi món).
+  final bool isLoadingDefaultFoods;
 
   @override
   State<SpinWheelScreen> createState() => _SpinWheelScreenState();
@@ -107,12 +127,15 @@ class _SpinWheelScreenState extends State<SpinWheelScreen>
     if (widget.foods.isEmpty) {
       return;
     }
+    final double rotation = _normalize2Pi(_pendingTargetRotation);
+    final int underPointer = _indexUnderPointer(rotation);
+    final Food winner = widget.foods[underPointer];
     setState(() {
       _isSpinning = false;
-      _currentRotation = _normalize2Pi(_pendingTargetRotation);
-      final int underPointer = _indexUnderPointer(_currentRotation);
-      _winner = widget.foods[underPointer];
+      _currentRotation = rotation;
+      _winner = winner;
     });
+    widget.onSpinCompleted?.call(winner);
   }
 
   Future<void> _showConfirmThen(String message, VoidCallback onConfirmed) async {
@@ -142,11 +165,16 @@ class _SpinWheelScreenState extends State<SpinWheelScreen>
     final List<Food> foods = widget.foods;
     final Color labelColor = AppGradients.primaryMid;
     if (foods.isEmpty) {
+      if (widget.isLoadingDefaultFoods) {
+        return Center(
+          child: CircularProgressIndicator(color: AppGradients.primaryMid),
+        );
+      }
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: GradientText(
-            'Chưa có món để quay.\nHãy vào tab Gọi món và xác nhận bộ lọc trước.',
+            'Chưa có món để quay.\nHãy vào tab Gọi món và xác nhận bộ lọc',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium,
           ),
@@ -218,25 +246,27 @@ class _SpinWheelScreenState extends State<SpinWheelScreen>
                               icon: const Icon(Icons.delivery_dining),
                               child: const Text('Đặt đồ về ăn tại nhà'),
                             ),
-                            const SizedBox(height: 12),
-                            GradientButton(
-                              onPressed: () {
-                                final Food dish = _winner!;
-                                _showConfirmThen(
-                                  'Khét đấy nhể !!! để tôi giúp bạn một bước tới con đường thành công nhé !!',
-                                  () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute<void>(
-                                        builder: (BuildContext _) =>
-                                            FoodDetailScreen(food: dish),
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                              icon: const Icon(Icons.restaurant_rounded),
-                              child: const Text('Tự nấu'),
-                            ),
+                            if (_foodHasRecipeUrl(_winner!)) ...<Widget>[
+                              const SizedBox(height: 12),
+                              GradientButton(
+                                onPressed: () {
+                                  final Food dish = _winner!;
+                                  _showConfirmThen(
+                                    'Khét đấy nhể !!! để tôi giúp bạn một bước tới con đường thành công nhé !!',
+                                    () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (BuildContext _) =>
+                                              FoodDetailScreen(food: dish),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                                icon: const Icon(Icons.restaurant_rounded),
+                                child: const Text('Tự nấu'),
+                              ),
+                            ],
                           ],
                         ),
                       ),

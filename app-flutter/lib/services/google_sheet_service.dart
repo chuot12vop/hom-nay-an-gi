@@ -7,6 +7,7 @@ import '../models/food.dart';
 import '../models/ingredient.dart';
 import '../models/meal.dart';
 import '../models/sheet_data.dart';
+import '../models/sheet_short_video.dart';
 
 class GoogleSheetService {
   static const String defaultSheetId = '1VoJ-5oiBt0YKPuAwUFDKaleNS8OofHGEed5Rurmoscc';
@@ -55,10 +56,21 @@ class GoogleSheetService {
         gid: mealsGid,
       );
 
+      List<Map<String, String>> videosRows = <Map<String, String>>[];
+      try {
+        videosRows = await _fetchCsvRows(
+          sheetId: defaultSheetId,
+          gid: videosGid,
+        );
+      } catch (_) {
+        videosRows = <Map<String, String>>[];
+      }
+
       return SheetData(
         foods: foodsRows.map(_foodFromRow).toList(),
         ingredients: ingredientsRows.map(_ingredientFromRow).toList(),
         meals: mealsRows.map(_mealFromRow).toList(),
+        shortVideos: videosRows.map(_shortVideoFromRow).toList(),
       );
     } catch (_) {
       return _fallbackData();
@@ -144,7 +156,10 @@ class GoogleSheetService {
 
     final String imageUrl = (row['image'] ?? row['food_image_url'] ?? '').trim();
     final String recipeUrl = (row['recipe'] ?? '').trim();
-    final String youtubeUrl = (row['youtube'] ?? row['video_url'] ?? '').trim();
+    // Sheet thực tế dùng cột `video`; thêm alias phổ biến.
+    final String youtubeUrl =
+        (row['youtube'] ?? row['video_url'] ?? row['video'] ?? row['youtube_url'] ?? '')
+            .trim();
 
     return Food(
       id: id,
@@ -171,6 +186,22 @@ class GoogleSheetService {
       id: row['meal_id'] ?? '',
       code: (row['meal_code'] ?? '').trim(),
       name: (row['meal_name_vi'] ?? row['name'] ?? '').trim(),
+    );
+  }
+
+  String? _nonEmptyField(String? value) {
+    final String t = (value ?? '').trim();
+    return t.isEmpty ? null : t;
+  }
+
+  SheetShortVideo _shortVideoFromRow(Map<String, String> row) {
+    return SheetShortVideo(
+      id: (row['id'] ?? '').trim(),
+      url: _nonEmptyField(row['url']),
+      thumbnailUrl: _nonEmptyField(row['thumbnail']),
+      category: _nonEmptyField(row['category']),
+      foodId: _nonEmptyField(row['food_id']),
+      mealId: _nonEmptyField(row['meal_id']),
     );
   }
 
@@ -222,6 +253,7 @@ class GoogleSheetService {
         Meal(id: '2', code: 'LUNCH', name: 'Bữa trưa'),
         Meal(id: '3', code: 'DINNER', name: 'Bữa tối'),
       ],
+      shortVideos: <SheetShortVideo>[],
     );
   }
 }

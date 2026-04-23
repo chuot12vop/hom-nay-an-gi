@@ -15,7 +15,7 @@ class AppBottomNavItem {
 }
 
 /// Thanh điều hướng dưới cùng:
-/// - 4 mục thường (Lịch sử / Gọi món / Video / Tài khoản)
+/// - 4 mục thường (Lịch sử / Quán ăn / Video / Tài khoản)
 /// - 1 nút tròn nổi ở giữa (vòng quay) với gradient cam-hồng-đỏ.
 /// - Mục được chọn: icon + chữ đổ gradient cam-hồng-đỏ.
 class AppGradientBottomNav extends StatelessWidget {

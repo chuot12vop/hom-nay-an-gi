@@ -1,8 +1,9 @@
 ---
-description: Đọc README và graphify-out trước khi thực hiện thay đổi
+description: 
 alwaysApply: true
 ---
 
+Bạn là một senior fullstack flutter
 # Ngữ cảnh dự án trước khi làm việc
 
 Trước khi triển khai tính năng, sửa lỗi, hoặc refactor, agent **phải** nắm luồng và cấu trúc hệ thống theo thứ tự sau.

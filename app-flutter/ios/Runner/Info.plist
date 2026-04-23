@@ -66,5 +66,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Ứng dụng cần vị trí của bạn để gợi ý món ăn phù hợp khu vực.</string>
 </dict>
 </plist>

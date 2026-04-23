@@ -6,7 +6,7 @@ import '../models/food.dart';
 import '../theme/app_gradients.dart';
 import '../widgets/gradient_widgets.dart';
 import 'food_detail_screen.dart';
-import 'restaurant_list_screen.dart';
+import 'restaurant_suggestions_screen.dart';
 
 /// Trùng logic WebView công thức trong [FoodDetailScreen]: chỉ coi là có công thức khi URL http(s) hợp lệ.
 bool _foodHasRecipeUrl(Food food) {
@@ -219,10 +219,13 @@ class _SpinWheelScreenState extends State<SpinWheelScreen>
                               onPressed: () => _showConfirmThen(
                                 'Hay đấy! lẹttt gâuuu!',
                                 () {
+                                  final Food dish = _winner!;
                                   Navigator.of(context).push(
                                     MaterialPageRoute<void>(
                                       builder: (BuildContext _) =>
-                                          const RestaurantListScreen(),
+                                          RestaurantSuggestionsScreen(
+                                        food: dish,
+                                      ),
                                     ),
                                   );
                                 },
@@ -235,10 +238,13 @@ class _SpinWheelScreenState extends State<SpinWheelScreen>
                               onPressed: () => _showConfirmThen(
                                 'Có vẻ bạn hơi lười... nhưng tôi thích điều đó',
                                 () {
+                                  final Food dish = _winner!;
                                   Navigator.of(context).push(
                                     MaterialPageRoute<void>(
                                       builder: (BuildContext _) =>
-                                          const RestaurantListScreen(),
+                                          RestaurantSuggestionsScreen(
+                                        food: dish,
+                                      ),
                                     ),
                                   );
                                 },

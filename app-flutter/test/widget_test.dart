@@ -7,14 +7,14 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:app_flutter/main.dart';
+import 'package:hom_nay_an_gi/app.dart';
 
 void main() {
   testWidgets('App loads with header and bottom navigation', (WidgetTester tester) async {
     await tester.pumpWidget(const HomNayAnGiApp());
 
     expect(find.text('Hôm Nay Ăn Gì'), findsOneWidget);
-    expect(find.text('Chọn món'), findsWidgets);
+    expect(find.text('Gọi món'), findsWidgets);
     expect(find.text('Lịch sử'), findsOneWidget);
   });
 }
